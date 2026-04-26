@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>neko.stone — neko card generator</title>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --surface: #ffffff;
+    --surface2: #f5f3ef;
+    --border: #e8e4de;
+    --border2: #d4cfc7;
+    --text: #1a1816;
+    --text2: #6b6560;
+    --text3: #9e9893;
+    --accent: #2d2926;
+    --accent-bg: #f0ece6;
+    --green: #2a5e3f;
+    --green-bg: #edf5f0;
+    --red: #8b2e2e;
+    --red-bg: #fdf0f0;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Georgia', serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .page { max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* header */
+  .header { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+  .header h1 { font-size: 22px; font-weight: 400; letter-spacing: 0.12em; color: var(--text); }
+  .header p { font-size: 13px; color: var(--text3); margin-top: 4px; font-family: system-ui, sans-serif; letter-spacing: 0.02em; }
+
+  /* api key section */
+  .key-section { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 2rem; }
+  .key-section label { font-size: 12px; font-family: system-ui, sans-serif; color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .key-row { display: flex; gap: 8px; }
+  .key-row input { flex: 1; font-family: 'Courier New', monospace; font-size: 13px; padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+  .key-row input:focus { border-color: var(--accent); }
+  .key-row button { padding: 8px 16px; font-size: 13px; font-family: system-ui, sans-serif; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+  .key-row button:hover { opacity: 0.85; }
+  .key-status { font-size: 12px; font-family: system-ui, sans-serif; margin-top: 8px; }
+  .key-status.ok { color: var(--green); }
+  .key-status.err { color: var(--red); }
+
+  /* search */
+  .search-wrap { margin-bottom: 1.25rem; position: relative; }
+  .search-wrap input { width: 100%; padding: 10px 14px; font-size: 15px; font-family: system-ui, sans-serif; border: 1px solid var(--border2); border-radius: var(--radius); background: var(--surface); color: var(--text); outline: none; }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap input::placeholder { color: var(--text3); }
+
+  /* stone grid */
+  .stone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 2rem; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+  .stone-grid::-webkit-scrollbar { width: 4px; }
+  .stone-grid::-webkit-scrollbar-track { background: transparent; }
+  .stone-grid::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .chip { padding: 10px 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; transition: all 0.12s; }
+  .chip:hover { border-color: var(--border2); background: var(--surface2); }
+  .chip.selected { border-color: var(--accent); background: var(--accent-bg); }
+  .chip .cn { font-size: 13px; font-weight: 400; color: var(--text); font-family: system-ui, sans-serif; }
+  .chip.selected .cn { color: var(--accent); font-weight: 500; }
+  .chip .cd { font-size: 11px; color: var(--text3); margin-top: 3px; font-family: system-ui, sans-serif; }
+  .no-results { grid-column: 1/-1; padding: 2rem; text-align: center; color: var(--text3); font-family: system-ui, sans-serif; font-size: 14px; }
+
+  /* selected bar */
+  .sel-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1rem; display: none; }
+  .sel-bar .stone-name { font-size: 18px; letter-spacing: 0.04em; margin-bottom: 12px; }
+  .sel-meta { display: flex; gap: 24px; flex-wrap: wrap; }
+  .sel-meta-item .ml { font-size: 11px; font-family: system-ui, sans-serif; color: var(--text3); letter-spacing: 0.05em; text-transform: uppercase; }
+  .sel-meta-item .mv { font-size: 13px; font-family: system-ui, sans-serif; color: var(--text2); margin-top: 2px; }
+
+  /* generate button */
+  .gen-btn { width: 100%; padding: 13px; font-size: 15px; font-family: 'Georgia', serif; letter-spacing: 0.06em; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); cursor: pointer; display: none; margin-bottom: 2rem; transition: opacity 0.15s; }
+  .gen-btn:hover { opacity: 0.85; }
+  .gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* output */
+  .output { display: none; }
+  .output-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .output-header { padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+  .output-header h2 { font-size: 20px; font-weight: 400; letter-spacing: 0.06em; }
+  .output-header .sku-tag { font-size: 11px; font-family: 'Courier New', monospace; color: var(--text3); background: var(--surface2); padding: 4px 8px; border-radius: 4px; margin-top: 4px; display: inline-block; }
+  .fields { padding: 0; }
+  .field { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+  .field:last-child { border-bottom: none; }
+  .field-label { font-size: 11px; font-family: system-ui, sans-serif; color: var(--text3); letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 6px; }
+  .field-value { font-size: 15px; line-height: 1.7; color: var(--text); }
+  .field-value.mono { font-family: system-ui, sans-serif; font-size: 14px; }
+  .sources { padding: 1.25rem 1.5rem; background: var(--surface2); border-top: 1px solid var(--border); }
+  .sources-label { font-size: 11px; font-family: system-ui, sans-serif; color: var(--text3); letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 8px; }
+  .source-item { font-size: 12px; font-family: system-ui, sans-serif; color: var(--text2); margin-bottom: 4px; }
+  .source-item a { color: var(--green); text-decoration: none; }
+  .source-item a:hover { text-decoration: underline; }
+  .copy-bar { padding: 1.25rem 1.5rem; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+  .copy-bar button { flex: 1; padding: 9px; font-size: 13px; font-family: system-ui, sans-serif; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text2); cursor: pointer; transition: all 0.12s; }
+  .copy-bar button:hover { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+
+  /* loading */
+  .loading { display: none; padding: 3rem; text-align: center; }
+  .loading-text { font-size: 14px; font-family: system-ui, sans-serif; color: var(--text3); letter-spacing: 0.04em; }
+  .spinner { width: 24px; height: 24px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* error */
+  .error-box { display: none; background: var(--red-bg); border: 1px solid #f0c0c0; border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1rem; font-size: 13px; font-family: system-ui, sans-serif; color: var(--red); line-height: 1.6; }
+
+  .divider { height: 1px; background: var(--border); margin: 2rem 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>neko.stone</h1>
+    <p>neko card generator — ค้นหาหินและ generate ข้อมูลพร้อมแหล่งที่มา</p>
+  </div>
+
+  <div class="key-section">
+    <label>Anthropic API Key</label>
+    <div class="key-row">
+      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+      <button onclick="saveKey()">บันทึก</button>
+    </div>
+    <div class="key-status" id="keyStatus"></div>
+  </div>
+
+  <div class="search-wrap">
+    <input type="text" id="searchInput" placeholder="ค้นหาชื่อหิน, รหัส, หรือสี..." oninput="filterStones()" />
+  </div>
+
+  <div class="stone-grid" id="stoneGrid"></div>
+
+  <div class="sel-bar" id="selBar">
+    <div class="stone-name" id="selName"></div>
+    <div class="sel-meta">
+      <div class="sel-meta-item"><div class="ml">SKU</div><div class="mv" id="selSku"></div></div>
+      <div class="sel-meta-item"><div class="ml">สี</div><div class="mv" id="selColor"></div></div>
+      <div class="sel-meta-item"><div class="ml">ขนาด</div><div class="mv" id="selSize"></div></div>
+      <div class="sel-meta-item"><div class="ml">แหล่งกำเนิด</div><div class="mv" id="selOrigin"></div></div>
+    </div>
+  </div>
+
+  <button class="gen-btn" id="genBtn" onclick="generate()">generate neko card</button>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">กำลังค้นหาข้อมูลจากอินเทอร์เน็ต...</div>
+  </div>
+
+  <div class="output" id="output">
+    <div class="output-card">
+      <div class="output-header">
+        <div>
+          <h2 id="outTitle"></h2>
+          <span class="sku-tag" id="outSku"></span>
+        </div>
+      </div>
+      <div class="fields" id="outFields"></div>
+      <div class="sources" id="outSources" style="display:none;">
+        <div class="sources-label">แหล่งที่มา</div>
+        <div id="sourcesList"></div>
+      </div>
+      <div class="copy-bar">
+        <button onclick="copyAll()">คัดลอกทั้งหมด</button>
+        <button onclick="copyEnergy()">คัดลอกเฉพาะพลังงาน</button>
+        <button onclick="copyPhysical()">คัดลอกข้อมูลกายภาพ</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const STONES = [
+  {id:"OPL",name:"Blue Opal",size:"11",sku:"BR-OPL-11-001",color:"น้ำเงิน",origin:""},
+  {id:"CNL",name:"Carnelian",size:"12",sku:"BR-CNL-12-001",color:"แดง, น้ำตาล, เหลือง",origin:""},
+  {id:"TML",name:"Watermelon Tourmaline",size:"5.6-5.7",sku:"BR-TML-05-001",color:"แตงโม",origin:""},
+  {id:"SP7",name:"Super 7",size:"8-8.5",sku:"BR-SP7-08-001",color:"หลายสี",origin:""},
+  {id:"RSQ",name:"Jelly Rose Quartz",size:"12",sku:"BR-RSQ-12-001",color:"ชมพูพีช",origin:"Mozambique"},
+  {id:"MON",name:"Rainbow Moon Stone",size:"8",sku:"BR-MON-08-001",color:"รุ้ง",origin:"Madagascar"},
+  {id:"GHL",name:"Golden Healer",size:"10",sku:"BR-GHL-10-001",color:"เหลือง, ส้ม",origin:""},
+  {id:"MDV",name:"Moldavite",size:"",sku:"PD-MDV-XX-001",color:"เขียว",origin:"Czech Republic"},
+  {id:"PTS",name:"Pietersite",size:"9.5-9.8",sku:"BR-PTS-10-001",color:"ดำ, น้ำเงิน",origin:""},
+  {id:"CTN",name:"Citrine",size:"",sku:"PD-CTN-XX-001",color:"เหลือง",origin:""},
+  {id:"BRK",name:"Brookite in Quartz",size:"7-7.5",sku:"BR-BRK-07-001",color:"น้ำตาล",origin:""},
+  {id:"LLM",name:"Larimar",size:"8.8-9.1",sku:"BR-LLM-09-001",color:"น้ำเงิน",origin:"Dominican Republic"},
+  {id:"DBR",name:"Danburite",size:"10-10.5",sku:"BR-DBR-10-001",color:"ชมพู",origin:""},
+  {id:"SUN",name:"Sunstone",size:"7",sku:"BR-SUN-07-001",color:"ทองแดง",origin:""},
+  {id:"LAB",name:"Purple Labradorite",size:"7",sku:"BR-LAB-07-001",color:"ม่วง",origin:""},
+  {id:"KYN",name:"Kyanite",size:"9",sku:"BR-KYN-09-001",color:"น้ำเงินเข้ม",origin:""},
+  {id:"SPN",name:"Seraphinite",size:"9.7-10.1",sku:"BR-SPN-10-001",color:"เขียวเข้ม, ขาว",origin:"Siberia"},
+  {id:"CHR",name:"Charoite",size:"11",sku:"BR-CHR-11-001",color:"ม่วงเข้ม, ขาว",origin:"Russia"},
+  {id:"DMT",name:"Dumortierite in Quartz",size:"7-7.5",sku:"BR-DMT-07-001",color:"น้ำเงินอ่อน",origin:""},
+  {id:"AMT",name:"Amethyst",size:"11.5-12",sku:"BR-AMT-12-001",color:"ม่วงอ่อน",origin:""},
+  {id:"PHQ",name:"Amethyst Phantom Quartz",size:"9.4-10",sku:"BR-PHQ-10-003",color:"ม่วง ฟันทม",origin:""},
+  {id:"AQM",name:"Island Aquamarine",size:"10-10.5",sku:"BR-AQM-10-003",color:"น้ำเงินเขียว",origin:""},
+  {id:"IOL",name:"Iolite",size:"5.1-5.5",sku:"BR-IOL-05-001",color:"คราม",origin:""},
+  {id:"RBH",name:"Pink Rabbit Hair",size:"8.1-8.5",sku:"BR-RBH-08-003",color:"ชมพู Venus Rutile",origin:""},
+  {id:"SMK",name:"Smoky Quartz",size:"10.5-11",sku:"BR-SMK-11-003",color:"น้ำตาลควัน",origin:""},
+  {id:"HYP",name:"Hypersthene",size:"8.5-9",sku:"BR-HYP-09-001",color:"เทาเข้ม",origin:""},
+  {id:"S23",name:"Auralite 23",size:"5-5.5",sku:"BR-S23-05-001",color:"หลายสี",origin:"Canada"},
+  {id:"HKM",name:"Herkimer Quartz",size:"9.5-9.9",sku:"BR-HKM-10-001",color:"ใส",origin:"New York, USA"},
+  {id:"LDG",name:"Libyan Desert Glass",size:"8.5-9",sku:"BR-LDG-09-002",color:"เหลือง",origin:"Libya/Egypt"},
+  {id:"AMB",name:"Amber",size:"4.8-5",sku:"BR-AMB-05-001",color:"อำพัน",origin:"Poland"},
+  {id:"ALS",name:"Alashan Agate",size:"8.5-9",sku:"BR-ALS-09-001",color:"ลาย Agate",origin:"Inner Mongolia"},
+  {id:"AMZ",name:"Amazonite",size:"6.5-7",sku:"BR-AMZ-07-001",color:"เขียวเทียล",origin:""},
+  {id:"ALT",name:"Aletai Iron Meteorite",size:"7",sku:"CH-ALT-07-001",color:"ทองชมพู",origin:"Xinjiang, China"},
+  {id:"MIX",name:"Tektite x Libyan Desert Glass",size:"",sku:"BR-MIX-XX-001",color:"หลายสี",origin:""}
+];
+
+let filtered = [...STONES];
+let selected = null;
+let currentCard = null;
+
+function init() {
+  const saved = localStorage.getItem('neko_api_key');
+  if (saved) {
+    document.getElementById('apiKey').value = saved;
+    document.getElementById('keyStatus').textContent = 'บันทึกแล้ว — พร้อมใช้งาน';
+    document.getElementById('keyStatus').className = 'key-status ok';
+  }
+  renderGrid();
+}
+
+function saveKey() {
+  const key = document.getElementById('apiKey').value.trim();
+  if (!key.startsWith('sk-ant-')) {
+    document.getElementById('keyStatus').textContent = 'รูปแบบ key ไม่ถูกต้อง ควรขึ้นต้นด้วย sk-ant-';
+    document.getElementById('keyStatus').className = 'key-status err';
+    return;
+  }
+  localStorage.setItem('neko_api_key', key);
+  document.getElementById('keyStatus').textContent = 'บันทึกแล้ว — พร้อมใช้งาน';
+  document.getElementById('keyStatus').className = 'key-status ok';
+}
+
+function renderGrid() {
+  const g = document.getElementById('stoneGrid');
+  if (!filtered.length) {
+    g.innerHTML = '<div class="no-results">ไม่พบหินที่ค้นหา</div>';
+    return;
+  }
+  g.innerHTML = filtered.map(s => {
+    const on = selected && selected.id === s.id ? 'selected' : '';
+    const detail = [s.size ? s.size+'mm' : '', s.color].filter(Boolean).join(' · ');
+    return `<div class="chip ${on}" onclick="pick('${s.id}')">
+      <div class="cn">${s.name}</div>
+      <div class="cd">${detail}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterStones() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  filtered = q
+    ? STONES.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q) ||
+        s.sku.toLowerCase().includes(q) ||
+        s.color.toLowerCase().includes(q)
+      )
+    : [...STONES];
+  renderGrid();
+}
+
+function pick(id) {
+  selected = STONES.find(s => s.id === id);
+  document.getElementById('selBar').style.display = 'block';
+  document.getElementById('genBtn').style.display = 'block';
+  document.getElementById('selName').textContent = selected.name;
+  document.getElementById('selSku').textContent = selected.sku;
+  document.getElementById('selColor').textContent = selected.color;
+  document.getElementById('selSize').textContent = selected.size ? selected.size+' mm' : '—';
+  document.getElementById('selOrigin').textContent = selected.origin || 'ไม่ระบุ';
+  document.getElementById('output').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  renderGrid();
+}
+
+async function generate() {
+  const key = localStorage.getItem('neko_api_key');
+  if (!key) {
+    showError('กรุณาใส่ API key ก่อน');
+    return;
+  }
+  if (!selected) return;
+
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('output').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('genBtn').disabled = true;
+
+  const steps = ['กำลังค้นหาข้อมูลจากอินเทอร์เน็ต...', 'กำลังตรวจสอบแหล่งที่มา...', 'กำลัง generate neko card...'];
+  let step = 0;
+  const stepInterval = setInterval(() => {
+    if (step < steps.length - 1) {
+      step++;
+      document.getElementById('loadingText').textContent = steps[step];
+    }
+  }, 3000);
+
+  const systemPrompt = `คุณคือผู้เชี่ยวชาญด้านอัญมณีและคริสตัลของแบรนด์ neko.stone แบรนด์กำไลหินจากประเทศไทย
+ตอบเป็นภาษาไทยเท่านั้น ยกเว้นชื่อวิทยาศาสตร์หรือชื่อสถานที่ที่ควรใช้ภาษาอังกฤษ
+tone: อ่อนโยน ไม่ฟันธง ไม่เกินจริง ให้ permission กับคนที่อยากเชื่อในพลังงานหินโดยไม่ต้องอธิบายเหตุผล`;
+
+  const userPrompt = `ค้นหาข้อมูลเกี่ยวกับหิน "${selected.name}" จากอินเทอร์เน็ต แล้ว generate neko card ด้วยข้อมูลต่อไปนี้จาก stock ของเรา:
+- SKU: ${selected.sku}
+- สี: ${selected.color}
+- ขนาด: ${selected.size ? selected.size+' mm' : 'ไม่ระบุ'}
+- แหล่งกำเนิดใน stock: ${selected.origin || 'ไม่ระบุ'}
+
+ให้ตอบในรูปแบบ JSON เท่านั้น ไม่มี markdown ไม่มี backtick ไม่มีข้อความอื่น:
+{
+  "ชื่อหิน": "ชื่อภาษาไทย (English name)",
+  "ประเภท": "ประเภทและกลุ่มแร่",
+  "สี": "อธิบายสีและลักษณะที่มองเห็นได้",
+  "ความแข็ง": "X/10 ตาม Mohs scale",
+  "แหล่งกำเนิดที่มีชื่อ": "ประเทศหรือภูมิภาคที่ขึ้นชื่อ",
+  "ลักษณะเด่น": "2-3 ประโยค อธิบายลักษณะทางกายภาพที่โดดเด่น ภาษาไทยเข้าใจง่าย",
+  "พลังงาน": "3-4 ประโยค พลังงานและความหมาย อ่อนโยน ไม่ฟันธง เหมาะกับคนที่อยากเชื่อแต่ต้องการ permission",
+  "เหมาะกับ": "2-3 ประโยค เหมาะกับคนในช่วงชีวิตหรือจิตใจแบบไหน",
+  "แหล่งที่มา": ["URL1", "URL2", "URL3"]
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-calls': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: systemPrompt,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+
+    clearInterval(stepInterval);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: { message: res.statusText } }));
+      showError(`API Error ${res.status}: ${err.error?.message || res.statusText}`);
+      return;
+    }
+
+    const data = await res.json();
+    const textBlock = data.content?.find(b => b.type === 'text');
+    if (!textBlock) {
+      showError('ไม่ได้รับข้อมูลจาก API กรุณาลองใหม่');
+      return;
+    }
+
+    const raw = textBlock.text;
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) {
+      showError('รูปแบบข้อมูลผิดพลาด: ' + raw.slice(0, 200));
+      return;
+    }
+
+    const card = JSON.parse(match[0]);
+    currentCard = card;
+    renderCard(card);
+
+  } catch(e) {
+    clearInterval(stepInterval);
+    showError('เกิดข้อผิดพลาด: ' + e.message);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('genBtn').disabled = false;
+  }
+}
+
+function renderCard(card) {
+  document.getElementById('outTitle').textContent = card['ชื่อหิน'] || selected.name;
+  document.getElementById('outSku').textContent = selected.sku;
+
+  const fields = [
+    ['ประเภท', card['ประเภท']],
+    ['สี', card['สี']],
+    ['ความแข็ง (Mohs)', card['ความแข็ง']],
+    ['แหล่งกำเนิดที่มีชื่อ', card['แหล่งกำเนิดที่มีชื่อ']],
+    ['ลักษณะเด่น', card['ลักษณะเด่น']],
+    ['พลังงาน', card['พลังงาน']],
+    ['เหมาะกับ', card['เหมาะกับ']]
+  ];
+
+  document.getElementById('outFields').innerHTML = fields.map(([label, val]) =>
+    `<div class="field">
+      <div class="field-label">${label}</div>
+      <div class="field-value">${val || '—'}</div>
+    </div>`
+  ).join('');
+
+  const sources = card['แหล่งที่มา'];
+  if (sources && sources.length) {
+    document.getElementById('outSources').style.display = 'block';
+    document.getElementById('sourcesList').innerHTML = sources.map((url, i) =>
+      `<div class="source-item">[${i+1}] <a href="${url}" target="_blank" rel="noopener">${url}</a></div>`
+    ).join('');
+  } else {
+    document.getElementById('outSources').style.display = 'none';
+  }
+
+  document.getElementById('output').style.display = 'block';
+  document.getElementById('output').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
+}
+
+function copyAll() {
+  if (!currentCard) return;
+  const fields = ['ชื่อหิน','ประเภท','สี','ความแข็ง','แหล่งกำเนิดที่มีชื่อ','ลักษณะเด่น','พลังงาน','เหมาะกับ'];
+  const text = fields.map(k => `${k}\n${currentCard[k] || '—'}`).join('\n\n');
+  navigator.clipboard.writeText(text).then(() => alert('คัดลอกแล้ว'));
+}
+
+function copyEnergy() {
+  if (!currentCard) return;
+  navigator.clipboard.writeText(currentCard['พลังงาน'] || '').then(() => alert('คัดลอกพลังงานแล้ว'));
+}
+
+function copyPhysical() {
+  if (!currentCard) return;
+  const text = [
+    `ชื่อหิน: ${currentCard['ชื่อหิน']}`,
+    `ประเภท: ${currentCard['ประเภท']}`,
+    `สี: ${currentCard['สี']}`,
+    `ความแข็ง: ${currentCard['ความแข็ง']}`,
+    `แหล่งกำเนิด: ${currentCard['แหล่งกำเนิดที่มีชื่อ']}`,
+    `ลักษณะเด่น: ${currentCard['ลักษณะเด่น']}`
+  ].join('\n');
+  navigator.clipboard.writeText(text).then(() => alert('คัดลอกข้อมูลกายภาพแล้ว'));
+}
+
+init();
+</script>
+</body>
+</html>
