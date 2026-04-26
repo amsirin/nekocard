@@ -32,17 +32,21 @@
   .header h1 { font-size: 22px; font-weight: 400; letter-spacing: 0.12em; color: var(--text); }
   .header p { font-size: 13px; color: var(--text3); margin-top: 4px; font-family: system-ui, sans-serif; letter-spacing: 0.02em; }
 
-  /* api key section */
-  .key-section { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 2rem; }
-  .key-section label { font-size: 12px; font-family: system-ui, sans-serif; color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 6px; }
-  .key-row { display: flex; gap: 8px; }
-  .key-row input { flex: 1; font-family: 'Courier New', monospace; font-size: 13px; padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
-  .key-row input:focus { border-color: var(--accent); }
-  .key-row button { padding: 8px 16px; font-size: 13px; font-family: system-ui, sans-serif; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
-  .key-row button:hover { opacity: 0.85; }
-  .key-status { font-size: 12px; font-family: system-ui, sans-serif; margin-top: 8px; }
-  .key-status.ok { color: var(--green); }
-  .key-status.err { color: var(--red); }
+  /* api key overlay */
+  .key-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .key-overlay.hidden { display: none; }
+  .key-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 420px; margin: 1.5rem; }
+  .key-modal h2 { font-size: 18px; font-weight: 400; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .key-modal p { font-size: 13px; font-family: system-ui, sans-serif; color: var(--text2); margin-bottom: 1.25rem; line-height: 1.6; }
+  .key-modal label { font-size: 11px; font-family: system-ui, sans-serif; color: var(--text3); letter-spacing: 0.07em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .key-modal input { width: 100%; font-family: 'Courier New', monospace; font-size: 13px; padding: 9px 12px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; margin-bottom: 10px; }
+  .key-modal input:focus { border-color: var(--accent); }
+  .key-modal button { width: 100%; padding: 10px; font-size: 14px; font-family: 'Georgia', serif; letter-spacing: 0.05em; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; }
+  .key-modal button:hover { opacity: 0.85; }
+  .key-modal-status { font-size: 12px; font-family: system-ui, sans-serif; margin-top: 8px; }
+  .key-modal-status.err { color: var(--red); }
+  .key-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-family: system-ui, sans-serif; color: var(--green); cursor: pointer; margin-bottom: 2rem; }
+  .key-badge span { text-decoration: underline; text-decoration-style: dotted; }
 
   /* search */
   .search-wrap { margin-bottom: 1.25rem; position: relative; }
@@ -116,13 +120,8 @@
     <p>neko card generator — ค้นหาหินและ generate ข้อมูลพร้อมแหล่งที่มา</p>
   </div>
 
-  <div class="key-section">
-    <label>Anthropic API Key</label>
-    <div class="key-row">
-      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
-      <button onclick="saveKey()">บันทึก</button>
-    </div>
-    <div class="key-status" id="keyStatus"></div>
+  <div id="keyBadge" class="key-badge" onclick="openKeyModal()" style="display:none;">
+    <span>API Key ✓ — เปลี่ยน</span>
   </div>
 
   <div class="search-wrap">
@@ -172,7 +171,40 @@
 
 </div>
 
+<!-- API key overlay (shown once on first visit) -->
+<div class="key-overlay" id="keyOverlay">
+  <div class="key-modal">
+    <h2>neko.stone</h2>
+    <p>ใส่ App Token เพื่อเข้าใช้งาน<br>Token จะถูกเก็บใน localStorage และส่งเป็น header ไปยัง proxy</p>
+    <label>App Token</label>
+    <input type="password" id="keyInput" placeholder="รหัสที่ได้รับ..." autocomplete="off" onkeydown="if(event.key==='Enter')saveKey()" />
+    <button onclick="saveKey()">บันทึกและเริ่มใช้งาน</button>
+    <div class="key-modal-status" id="keyModalStatus"></div>
+  </div>
+</div>
+
 <script>
+const KEY_STORAGE = 'neko_api_key';
+
+function openKeyModal() {
+  const saved = localStorage.getItem(KEY_STORAGE) || '';
+  document.getElementById('keyInput').value = saved;
+  document.getElementById('keyModalStatus').textContent = '';
+  document.getElementById('keyOverlay').classList.remove('hidden');
+}
+
+function saveKey() {
+  const key = document.getElementById('keyInput').value.trim();
+  if (!key.startsWith('sk-ant-')) {
+    document.getElementById('keyModalStatus').textContent = 'รูปแบบ key ไม่ถูกต้อง ควรขึ้นต้นด้วย sk-ant-';
+    document.getElementById('keyModalStatus').className = 'key-modal-status err';
+    return;
+  }
+  localStorage.setItem(KEY_STORAGE, key);
+  document.getElementById('keyOverlay').classList.add('hidden');
+  document.getElementById('keyBadge').style.display = 'inline-flex';
+}
+
 const STONES = [
   {id:"OPL",name:"Blue Opal",size:"11",sku:"BR-OPL-11-001",color:"น้ำเงิน",origin:""},
   {id:"CNL",name:"Carnelian",size:"12",sku:"BR-CNL-12-001",color:"แดง, น้ำตาล, เหลือง",origin:""},
@@ -215,25 +247,12 @@ let selected = null;
 let currentCard = null;
 
 function init() {
-  const saved = localStorage.getItem('neko_api_key');
+  const saved = localStorage.getItem(KEY_STORAGE);
   if (saved) {
-    document.getElementById('apiKey').value = saved;
-    document.getElementById('keyStatus').textContent = 'บันทึกแล้ว — พร้อมใช้งาน';
-    document.getElementById('keyStatus').className = 'key-status ok';
+    document.getElementById('keyOverlay').classList.add('hidden');
+    document.getElementById('keyBadge').style.display = 'inline-flex';
   }
   renderGrid();
-}
-
-function saveKey() {
-  const key = document.getElementById('apiKey').value.trim();
-  if (!key.startsWith('sk-ant-')) {
-    document.getElementById('keyStatus').textContent = 'รูปแบบ key ไม่ถูกต้อง ควรขึ้นต้นด้วย sk-ant-';
-    document.getElementById('keyStatus').className = 'key-status err';
-    return;
-  }
-  localStorage.setItem('neko_api_key', key);
-  document.getElementById('keyStatus').textContent = 'บันทึกแล้ว — พร้อมใช้งาน';
-  document.getElementById('keyStatus').className = 'key-status ok';
 }
 
 function renderGrid() {
@@ -280,9 +299,9 @@ function pick(id) {
 }
 
 async function generate() {
-  const key = localStorage.getItem('neko_api_key');
+  const key = localStorage.getItem(KEY_STORAGE);
   if (!key) {
-    showError('กรุณาใส่ API key ก่อน');
+    openKeyModal();
     return;
   }
   if (!selected) return;
@@ -325,16 +344,11 @@ tone: อ่อนโยน ไม่ฟันธง ไม่เกินจร
 }`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/generate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-calls': 'true'
-      },
+      headers: { 'Content-Type': 'application/json', 'x-app-token': key },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1500,
         system: systemPrompt,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
