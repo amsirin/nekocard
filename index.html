@@ -195,8 +195,8 @@ function openKeyModal() {
 
 function saveKey() {
   const key = document.getElementById('keyInput').value.trim();
-  if (!key.startsWith('sk-ant-')) {
-    document.getElementById('keyModalStatus').textContent = 'รูปแบบ key ไม่ถูกต้อง ควรขึ้นต้นด้วย sk-ant-';
+  if (!key) {
+    document.getElementById('keyModalStatus').textContent = 'กรุณาใส่ token';
     document.getElementById('keyModalStatus').className = 'key-modal-status err';
     return;
   }
